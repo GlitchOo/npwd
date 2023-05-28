@@ -68,7 +68,6 @@ export function TweetList({ tweets }: { tweets: FormattedTweet[] }) {
       data={tweetsData}
       endReached={handleNewPageLoad}
       overscan={6}
-      followOutput="smooth"
       itemContent={(index, tweet) => {
         return <Tweet key={tweet.id} tweet={tweet} imageOpen={imageOpen} setImageOpen={setImageOpen} />
       }}
