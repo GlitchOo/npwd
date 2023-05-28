@@ -44,7 +44,7 @@ export function TweetList({ tweets }: { tweets: FormattedTweet[] }) {
     });
   }, [setTweetsData])
 
-  const loading = () => {
+  const Footer = () => {
     if (hasNextPage) {
       return (
         <div style={{padding: '2rem', display: 'flex', justifyContent: 'center', color: '#64A5FD'}}>
@@ -72,7 +72,7 @@ export function TweetList({ tweets }: { tweets: FormattedTweet[] }) {
       itemContent={(index, tweet) => {
         return <Tweet key={tweet.id} tweet={tweet} imageOpen={imageOpen} setImageOpen={setImageOpen} />
       }}
-      components={{loading}}
+      components={{ Footer }}
     />
     </>
   );
