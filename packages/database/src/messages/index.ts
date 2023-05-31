@@ -12,6 +12,7 @@ export class _MessagesDB {
                           npwd_messages_participants.unread_count               as unreadCount,
                           npwd_messages_conversations.is_group_chat             as isGroupChat,
                           npwd_messages_conversations.label,
+                          npwd_messages_conversations.owner,
                           UNIX_TIMESTAMP(npwd_messages_conversations.updatedAt) as updatedAt,
                           npwd_messages_participants.participant
                    FROM npwd_messages_conversations
@@ -29,6 +30,7 @@ export class _MessagesDB {
                           npwd_messages_conversations.conversation_list         as conversationList,
                           npwd_messages_conversations.is_group_chat             as isGroupChat,
                           npwd_messages_conversations.label,
+                          npwd_messages_conversations.owner,
                           UNIX_TIMESTAMP(npwd_messages_conversations.createdAt) as createdAt,
                           UNIX_TIMESTAMP(npwd_messages_conversations.updatedAt) as updatedAt
                    FROM npwd_messages_conversations
@@ -48,8 +50,13 @@ export class _MessagesDB {
                           npwd_messages.author,
                           npwd_messages.message,
                           npwd_messages.is_embed,
-                          UNIX_TIMESTAMP(npwd_messages.createdAt) as createdAt,
-                          npwd_messages.embed
+                          npwd_messages.embed,
+                          npwd_messages.is_system,
+                          npwd_messages.system_type,
+                          npwd_messages.system_number,
+                          UNIX_TIMESTAMP(npwd_messages.createdAt) as createdAt
+
+
                    FROM npwd_messages
                    WHERE conversation_id = ?
                    ORDER BY createdAt DESC
@@ -68,9 +75,10 @@ export class _MessagesDB {
     conversationList: string,
     conversationLabel: string,
     isGroupChat: boolean,
+    owner: string,
   ) {
-    const conversationQuery = `INSERT INTO npwd_messages_conversations (conversation_list, label, is_group_chat)
-                               VALUES (?, ?, ?)`;
+    const conversationQuery = `INSERT INTO npwd_messages_conversations (conversation_list, label, is_group_chat, owner)
+                               VALUES (?, ?, ?, ?)`;
     const participantQuery = `INSERT INTO npwd_messages_participants (conversation_id, participant)
                               VALUES (?, ?)`;
 
@@ -78,6 +86,7 @@ export class _MessagesDB {
       conversationList,
       isGroupChat ? conversationLabel : '',
       isGroupChat,
+      owner,
     ]);
     const result = <ResultSetHeader>results;
 
@@ -101,9 +110,14 @@ export class _MessagesDB {
     return conversationId;
   }
 
+  async updateConversationList(conversationId: number, conversationList: string) {
+    const conversationQuery = `UPDATE npwd_messages_conversations SET conversation_list = ? WHERE id = ?`;
+    await DbInterface._rawExec(conversationQuery, [conversationList, conversationId]);
+  }
+
   async createMessage(dto: CreateMessageDTO): Promise<Message> {
-    const query = `INSERT INTO npwd_messages (message, user_identifier, conversation_id, author, is_embed, embed)
-                   VALUES (?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO npwd_messages (message, user_identifier, conversation_id, author, is_embed, embed, is_system, system_type, system_number)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const [results] = await DbInterface._rawExec(query, [
       dto.message || '',
@@ -112,6 +126,9 @@ export class _MessagesDB {
       dto.authorPhoneNumber,
       dto.is_embed || false,
       dto.embed || '',
+      dto.is_system || false,
+      dto.system_type || '',
+      dto.system_number || '',
     ]);
 
     const result = <ResultSetHeader>results;
@@ -165,6 +182,18 @@ export class _MessagesDB {
     await DbInterface._rawExec(query, [conversationId, phoneNumber]);
   }
 
+  async removeGroupMember(conversationList: string, conversationId: number, phoneNumber: string) {
+    const conversationQuery = `UPDATE npwd_messages_conversations SET conversation_list = ? WHERE id = ?`;
+    const participantQuery = `DELETE FROM npwd_messages_participants WHERE conversation_id = ? AND participant = ?`;
+    await DbInterface._rawExec(conversationQuery, [conversationList, conversationId]);
+    await DbInterface._rawExec(participantQuery, [conversationId, phoneNumber]);
+  }
+
+  async makeGroupOwner(conversationId: number, phoneNumber: string) {
+    const query = `UPDATE npwd_messages_conversations SET owner = ? WHERE id = ?`;
+    await DbInterface._rawExec(query, [phoneNumber, conversationId]);
+  }
+
   async doesConversationExist(conversationList: string): Promise<boolean> {
     const query = `SELECT COUNT(*) as count
                    FROM npwd_messages_conversations
@@ -177,6 +206,15 @@ export class _MessagesDB {
     const count = result[0].count;
 
     return count > 0;
+  }
+
+  async getGroupOwner(conversationID: number): Promise<string> {
+    const query = `SELECT owner FROM npwd_messages_conversations WHERE id = ?`;
+
+    const [results] = await DbInterface._rawExec(query, [conversationID]);
+    const result = <any>results;
+
+    return result[0].owner;
   }
 
   async doesConversationExistForPlayer(
