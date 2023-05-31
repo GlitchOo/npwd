@@ -27,7 +27,6 @@ export const useMessagesService = () => {
     updateLocalGroupOwner,
     addLocalConversationParticipants,
   } = useMessageActions();
-  const { setNotification } = useMessageNotifications();
   const { pathname } = useLocation();
   const activeConversation = useActiveMessageConversation();
   const { visibility } = usePhoneVisibility();
